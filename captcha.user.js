@@ -6,8 +6,8 @@
 // @author       You
 // @match        https://key-drop.com/*
 // @match        https://*.key-drop.com/*
-// @updateURL   https://raw.githubusercontent.com/Hardelan/captcha/main/captcha
-// @downloadURL https://raw.githubusercontent.com/Hardelan/captcha/main/captcha
+// @updateURL   https://raw.githubusercontent.com/Hardelan/captcha/main/captcha.user.js
+// @downloadURL https://raw.githubusercontent.com/Hardelan/captcha/main/captcha.user.js
 // @run-at       document-idle
 // @grant        none
 // ==/UserScript==
