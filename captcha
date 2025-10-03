@@ -1,0 +1,113 @@
+// ==UserScript==
+// @name         Key-Drop human-like checkbox click (label.cb-lb)
+// @namespace    http://tampermonkey.net/
+// @version      1.0
+// @description  Po 5s i 10s sprawdza, czy jest <label class="cb-lb"> z checkboxem; jeśli tak, klika jak człowiek (przytrzymanie LPM).
+// @author       You
+// @match        https://key-drop.com/*
+// @match        https://*.key-drop.com/*
+// @run-at       document-idle
+// @grant        none
+// ==/UserScript==
+
+(function () {
+    'use strict';
+
+    // --- Ustawienia ---
+    const LABEL_SELECTOR = 'label.cb-lb'; // etykieta, w której spodziewamy się checkboxa
+    const HOLD_MS_MIN = 120;              // minimalne "przytrzymanie" (ms)
+    const HOLD_MS_MAX = 420;              // maksymalne "przytrzymanie" (ms)
+    const SIMULATE_MOUSE_MOVE = true;     // czy poruszać kursorem przed kliknięciem
+    const FORCE_CHECK = false;            // wymuszaj checked + change, jeśli click nie zadziała
+
+    // Pomocnicze
+    const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+    function dispatchMouseEvent(target, type, opts = {}) {
+        const rect = target.getBoundingClientRect();
+        const clientX = ('clientX' in opts) ? opts.clientX : Math.floor(rect.left + rect.width / 2);
+        const clientY = ('clientY' in opts) ? opts.clientY : Math.floor(rect.top + rect.height / 2);
+
+        const eventInit = Object.assign({
+            view: window,
+            bubbles: true,
+            cancelable: true,
+            screenX: window.screenX + clientX,
+            screenY: window.screenY + clientY,
+            clientX,
+            clientY,
+            button: 0,
+            buttons: 1
+        }, opts);
+
+        target.dispatchEvent(new MouseEvent(type, eventInit));
+    }
+
+    async function humanClickOnLabel(labelEl) {
+        let checkbox = labelEl.querySelector('input[type="checkbox"]');
+        if (!checkbox && labelEl.htmlFor) {
+            checkbox = document.getElementById(labelEl.htmlFor);
+        }
+        if (!checkbox || checkbox.disabled) return false;
+        if (checkbox.checked) return false; // już zaznaczone — nic nie rób
+
+        // opcjonalny ruch myszy
+        if (SIMULATE_MOUSE_MOVE) {
+            dispatchMouseEvent(labelEl, 'mouseover', { buttons: 0 });
+            const rect = labelEl.getBoundingClientRect();
+            const steps = 2 + Math.floor(Math.random() * 3);
+            for (let i = 0; i < steps; i++) {
+                const cx = Math.floor(rect.left + (Math.random() * rect.width));
+                const cy = Math.floor(rect.top + (Math.random() * rect.height));
+                dispatchMouseEvent(labelEl, 'mousemove', { clientX: cx, clientY: cy, buttons: 0 });
+            }
+        }
+
+        // mousedown -> hold -> mouseup -> click
+        dispatchMouseEvent(labelEl, 'mousedown', { button: 0, buttons: 1 });
+        await new Promise(r => setTimeout(r, randInt(HOLD_MS_MIN, HOLD_MS_MAX)));
+        dispatchMouseEvent(labelEl, 'mouseup', { button: 0, buttons: 0 });
+        dispatchMouseEvent(labelEl, 'click', { button: 0, buttons: 0 });
+
+        if (FORCE_CHECK && !checkbox.checked) {
+            checkbox.checked = true;
+            checkbox.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+        }
+
+        return true;
+    }
+
+    // Zwraca true, jeśli kliknęliśmy cokolwiek
+    async function scanAndClickOnce(root = document) {
+        const labels = Array.from(root.querySelectorAll(LABEL_SELECTOR))
+            .filter(l => l instanceof Element);
+
+        for (const label of labels) {
+            if (label.dataset.__cbLbAutoClicked === '1') continue;
+            const did = await humanClickOnLabel(label);
+            label.dataset.__cbLbAutoClicked = '1'; // oznacz, żeby nie klikać ponownie
+            if (did) return true; // wystarczy jeden
+        }
+        return false;
+    }
+
+    // Główny przebieg: sprawdź po 5s, a jeśli nic — po 10s; jeśli nadal nic — koniec
+    function scheduleChecks() {
+        const t1 = setTimeout(async () => {
+            const clicked5 = await scanAndClickOnce();
+            if (clicked5) return; // zrobione
+
+            const t2 = setTimeout(async () => {
+                const clicked10 = await scanAndClickOnce();
+                if (!clicked10) {
+                    // nic nie znaleziono, kończymy
+                    // console.debug('[Key-Drop cb] Nie znaleziono checkboxa po 10s — koniec.');
+                }
+            }, 5000); // 10s od startu
+        }, 5000); // 5s od startu
+    }
+
+    // Start
+    scheduleChecks();
+
+})();
