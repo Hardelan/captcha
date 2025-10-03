@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Key-Drop <> CheckboxClicker unified postMessage & human-click
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Jeden skrypt: parent (key-drop.com) wysyła postMessage do iframe (static.checkboxclicker.com) po 5s i 10s; iframe wykonuje "ludzkie" kliknięcie na checkbox. Fallbacky w iframe (self try 5s/10s). Logs w konsoli.
 // @author       You
 // @match        https://key-drop.com/*
